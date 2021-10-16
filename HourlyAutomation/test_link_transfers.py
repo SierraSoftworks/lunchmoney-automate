@@ -1,18 +1,7 @@
-from datetime import datetime
-from typing import Dict, Tuple
-import pytest
 from unittest.mock import patch
 
 from .link_transfers import LinkTransfersTask
 
-
-@pytest.mark.parametrize(
-    ["text", "expected"],
-    [("2021-01-07", datetime(2021, 1, 7)), ("2019-12-01", datetime(2019, 12, 1))],
-)
-def test_parse_date(text: str, expected: datetime):
-    task = LinkTransfersTask()
-    assert task._parse_date(text) == expected
 
 def test_link_transactions(call_lunchmoney):
     task = LinkTransfersTask(create_if_missing=False)

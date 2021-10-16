@@ -2,6 +2,7 @@ from collections import defaultdict
 import json
 from typing import Any, Callable, Dict, Iterable, List, TypeVar
 from os import getenv
+import dateparser
 
 import requests
 
@@ -95,3 +96,6 @@ def call_lunchmoney(
     resp.raise_for_status()
 
     return resp.json()
+
+def parse_date(date: str):
+    return dateparser.parse(date, date_formats=["%Y-%m-%d"])

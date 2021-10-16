@@ -4,7 +4,7 @@ from decimal import Decimal
 import dateparser
 
 from .task import Task
-from .utils import Account, Category, Transaction, call_lunchmoney
+from .utils import Account, Category, Transaction, call_lunchmoney, parse_date
 
 
 class LinkTransfersTask(Task):
@@ -157,7 +157,7 @@ class LinkTransfersTask(Task):
         date_candidates = list(
             filter(
                 lambda t: abs(
-                    self._parse_date(t.date) - self._parse_date(transaction.date)
+                    parse_date(t.date) - parse_date(transaction.date)
                 )
                 <= time_offset,
                 named_candidates,
@@ -168,7 +168,7 @@ class LinkTransfersTask(Task):
         final_candidates = sorted(
             date_candidates,
             key=lambda t: abs(
-                self._parse_date(t.date) - self._parse_date(transaction.date)
+                parse_date(t.date) - parse_date(transaction.date)
             ),
         )
 
@@ -253,6 +253,3 @@ class LinkTransfersTask(Task):
                 },
             ),
         )
-
-    def _parse_date(self, date: str):
-        return dateparser.parse(date, date_formats=["%Y-%m-%d"])

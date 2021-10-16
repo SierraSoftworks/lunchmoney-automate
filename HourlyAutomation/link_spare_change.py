@@ -5,7 +5,7 @@ import dateparser
 import math
 
 from .task import Task
-from .utils import Account, Category, Transaction, call_lunchmoney
+from .utils import Account, Category, Transaction, call_lunchmoney, parse_date
 
 
 class LinkSpareChangeTask(Task):
@@ -137,7 +137,7 @@ class LinkSpareChangeTask(Task):
 
             date_candidates = list(
                 filter(
-                    lambda c: abs(self._parse_date(c.date) - self._parse_date(t.date))
+                    lambda c: abs(parse_date(c.date) - parse_date(t.date))
                     < timedelta(days=self.max_offset_days),
                     savings_transactions,
                 )
@@ -181,5 +181,3 @@ class LinkSpareChangeTask(Task):
                 f"Completed {t} by forming new group {new_group} with transactions {list(transactions)}"
             )
 
-    def _parse_date(self, date: str):
-        return dateparser.parse(date, date_formats=["%Y-%m-%d"])
