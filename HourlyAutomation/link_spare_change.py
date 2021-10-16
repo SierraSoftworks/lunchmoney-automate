@@ -8,7 +8,7 @@ from .task import Task
 from .utils import Account, Category, Transaction, call_lunchmoney
 
 class LinkSpareChangeTask(Task):
-    def __init__(self, main_account: str, savings_account: str, multiplier: int = 1, ignore_categories: List[str] = ["Transfers"], max_offset_days: int = 14) -> None:
+    def __init__(self, main_account: str, savings_account: str, multiplier: int = 1, ignore_categories: List[str] = ["Transfers"], max_offset_days: int = 1) -> None:
         super().__init__()
 
         now = datetime.utcnow().date()
