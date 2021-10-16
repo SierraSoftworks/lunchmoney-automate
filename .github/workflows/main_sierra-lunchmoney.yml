@@ -50,7 +50,7 @@ jobs:
     needs: build
     environment:
       name: 'Production'
-      url: ${{ steps.deploy-to-function.outputs.webapp-url }}
+      # url: ${{ steps.deploy-to-function.outputs.webapp-url }}
 
     steps:
       - name: Download artifact from build job
