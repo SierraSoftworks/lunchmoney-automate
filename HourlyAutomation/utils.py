@@ -8,13 +8,21 @@ import requests
 T = TypeVar("T")
 S = TypeVar("S")
 
+
 class Wrapper:
-    def __init__(self,  **data: dict) -> None:
+    def __init__(self, **data: dict) -> None:
         for k, v in data.items():
             setattr(self, k, v)
 
     def __repr__(self) -> str:
         return json.dumps(self.__dict__)
+
+    def __getattribute__(self, name: str) -> Any:
+        try:
+            return super().__getattribute__(name)
+        except AttributeError:
+            return None
+
 
 class Account(Wrapper):
     id: int
@@ -26,7 +34,8 @@ class Account(Wrapper):
 
     @property
     def alias(self):
-        return self.display_name or self.name
+        return getattr(self, 'display_name', None) or self.name
+
 
 class Category(Wrapper):
     id: int
@@ -36,6 +45,7 @@ class Category(Wrapper):
 
     def __init__(self, **data: dict) -> None:
         super().__init__(**data)
+
 
 class Transaction(Wrapper):
     id: int
@@ -52,12 +62,12 @@ class Transaction(Wrapper):
     is_group: bool
     group_id: int
 
-
     def __init__(self, **data: dict) -> None:
         super().__init__(**data)
 
     def __str__(self) -> str:
         return f"{self.date} {self.payee} [{self.currency.upper()} {self.amount}]"
+
 
 def group(items: Iterable[T], key: Callable[[T], S]) -> Dict[S, List[T]]:
     out = defaultdict(lambda: [])
@@ -66,17 +76,22 @@ def group(items: Iterable[T], key: Callable[[T], S]) -> Dict[S, List[T]]:
 
     return out
 
-def call_lunchmoney(method: str, endpoint: str, headers: dict = None, **kwargs) -> Dict[str, Any]:
+
+def call_lunchmoney(
+    method: str, endpoint: str, headers: dict = None, **kwargs
+) -> Dict[str, Any]:
     token = getenv("LUNCHMONEY_TOKEN")
     assert token is not None
 
     headers = {
         **(headers or {}),
-        'Authorization': f'Bearer {token}',
-        'Accept': 'application/json'
+        "Authorization": f"Bearer {token}",
+        "Accept": "application/json",
     }
 
-    resp = requests.request(method, f'https://dev.lunchmoney.app{endpoint}', headers=headers, **kwargs)
+    resp = requests.request(
+        method, f"https://dev.lunchmoney.app{endpoint}", headers=headers, **kwargs
+    )
     resp.raise_for_status()
 
     return resp.json()
