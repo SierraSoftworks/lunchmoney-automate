@@ -3,3 +3,4 @@
 azure-functions
 dateparser==1.0.0
 requests==2.26.0
+pytest==6.2.5
