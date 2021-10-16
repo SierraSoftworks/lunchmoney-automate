@@ -108,7 +108,7 @@ class LinkTransfersTask(Task):
                     {
                         "id": transaction.id,
                         "date": transaction.date,
-                        "payee": f"{candidate_kind} {candidate_kind.lower()} {ft_account.alias}",
+                        "payee": f"{candidate_kind} {ft_account.alias}",
                         "amount": ("" if transaction.amount.startswith("-") else "-") + transaction.amount.lstrip("-"),
                         "currency": transaction.currency,
                         "notes": transaction.notes,
@@ -122,7 +122,7 @@ class LinkTransfersTask(Task):
             self.log.info(f"Creating new pair for {transaction}")
             self.log.debug("Created group with ID/error: %s", self._call("POST", "/v1/transactions/group", json={
                 "date": transaction.date,
-                "payee": f"{ft_account.alias} to {to_account.alias}",
+                "payee": f"{to_account.alias} {candidate_kind.lower()} {ft_account.alias}",
                 "category_id": category.id,
                 "notes": transaction.notes,
                 "tags": [tag["id"] for tag in (transaction.tags or [])], # We exclude the original trigger tag
@@ -136,7 +136,7 @@ class LinkTransfersTask(Task):
         bl_account = next(account for account in accounts if account.id in [best_link.asset_id, best_link.plaid_account_id])
         self.log.debug(" ---> ", self._call("POST", "/v1/transactions/group", json={
             "date": min(transaction.date, best_link.date),
-            "payee": f"{ft_account.alias} {candidate_kind.lower()} {bl_account.alias}",
+            "payee": f"{bl_account.alias} {candidate_kind.lower()} {ft_account.alias}",
             "category_id": category.id,
             "notes": "; ".join(filter(lambda x: x, [transaction.notes, best_link.notes])),
             "tags": [tag["id"] for tag in [*(transaction.tags or []), *(best_link.tags or [])]], # We exclude the original trigger tag
