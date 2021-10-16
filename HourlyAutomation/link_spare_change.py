@@ -48,7 +48,7 @@ class LinkSpareChangeTask(Task):
 
         self.log.debug(f"{len(accounts)} accounts loaded from Lunch Money")
         for account in accounts:
-            self.log.debug(" -", account.alias, f"({account.id})")
+            self.log.debug(" - %s %s", account.alias, f"({account.id})")
 
         categories = [
             Category(**cat)
@@ -153,7 +153,7 @@ class LinkSpareChangeTask(Task):
                 )
                 continue
 
-            self.log.debug(t, " ---> ", st)
+            self.log.debug("%s ---> %s", t, st)
             savings_transactions.remove(st)
 
             transactions = set([t.id, st.id])

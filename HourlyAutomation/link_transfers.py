@@ -29,11 +29,11 @@ class LinkTransfersTask(Task):
         accounts = [
             *(
                 Account("asset", **asset)
-                for asset in self._call("GET", "/v1/assets")["assets"]
+                for asset in call_lunchmoney("GET", "/v1/assets")["assets"]
             ),
             *(
                 Account("plaid_account", **asset)
-                for asset in self._call("GET", "/v1/plaid_accounts")["plaid_accounts"]
+                for asset in call_lunchmoney("GET", "/v1/plaid_accounts")["plaid_accounts"]
             ),
         ]
 
@@ -42,7 +42,7 @@ class LinkTransfersTask(Task):
             self.log.debug(f"{account.alias} ({account.id})")
 
         categories = [
-            Category(**cat) for cat in self._call("GET", "/v1/categories")["categories"]
+            Category(**cat) for cat in call_lunchmoney("GET", "/v1/categories")["categories"]
         ]
         self.log.debug(f"{len(categories)} categories loaded from Lunch Money")
         category = next(cat for cat in categories if cat.name == self.transfer_category)
@@ -51,7 +51,7 @@ class LinkTransfersTask(Task):
 
         transactions = [
             Transaction(**cat)
-            for cat in self._call(
+            for cat in call_lunchmoney(
                 "GET",
                 "/v1/transactions",
                 params={
@@ -180,7 +180,7 @@ class LinkTransfersTask(Task):
             return
 
         if best_link is None:
-            created_ids = self._call(
+            created_ids = call_lunchmoney(
                 "POST",
                 "/v1/transactions",
                 json={
@@ -208,7 +208,7 @@ class LinkTransfersTask(Task):
             self.log.info(f"Creating new pair for {transaction}")
             self.log.debug(
                 "Created group with ID/error: %s",
-                self._call(
+                call_lunchmoney(
                     "POST",
                     "/v1/transactions/group",
                     json={
@@ -234,8 +234,8 @@ class LinkTransfersTask(Task):
             if account.id in [best_link.asset_id, best_link.plaid_account_id]
         )
         self.log.debug(
-            " ---> ",
-            self._call(
+            " ---> %s",
+            call_lunchmoney(
                 "POST",
                 "/v1/transactions/group",
                 json={
@@ -256,6 +256,3 @@ class LinkTransfersTask(Task):
 
     def _parse_date(self, date: str):
         return dateparser.parse(date, date_formats=["%Y-%m-%d"])
-
-    def _call(self, method: str, endpoint: str, headers: dict = None, **kwargs):
-        return call_lunchmoney(method, endpoint, headers=headers, **kwargs)
