@@ -243,7 +243,7 @@ class LinkTransfersTask(Task):
                     "payee": f"{bl_account.alias} {candidate_kind.lower()} {ft_account.alias}",
                     "category_id": category.id,
                     "notes": "; ".join(
-                        filter(lambda x: x, [transaction.notes, best_link.notes])
+                        filter(lambda x: x, [f"{transaction.currency.upper()} {abs(Decimal(transaction.amount))}", transaction.notes, best_link.notes])
                     ),
                     "tags": [
                         tag["id"]

@@ -274,7 +274,7 @@ def test_link_transactions(lunchmoney_mock: Tuple[Dict[str, dict], MagicMock]):
         'date': '2020-01-02',
         'payee': 'Test Asset 2 to Test Asset 1',
         'category_id': 85,
-        'notes': '',
+        'notes': 'USD 100.0000',
         'tags': [],
         'transactions': [605, 604]
     })
