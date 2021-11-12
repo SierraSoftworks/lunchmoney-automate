@@ -1,6 +1,8 @@
 # Do not include azure-functions-worker as it may conflict with the Azure Functions platform
 
-azure-functions
 dateparser==1.0.0
 requests==2.26.0
 pytest==6.2.5
+opentelemetry-api==1.7.1
+opentelemetry-sdk==1.7.1
+opentelemetry-exporter-otlp-proto-grpc==1.7.1

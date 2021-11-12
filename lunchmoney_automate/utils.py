@@ -3,12 +3,14 @@ import json
 from typing import Any, Callable, Dict, Iterable, List, TypeVar
 from os import getenv
 import dateparser
+from opentelemetry import trace
 
 import requests
 
 T = TypeVar("T")
 S = TypeVar("S")
 
+tracer = trace.get_tracer(__name__)
 
 class Wrapper:
     def __init__(self, **data: dict) -> None:
@@ -81,21 +83,28 @@ def group(items: Iterable[T], key: Callable[[T], S]) -> Dict[S, List[T]]:
 def call_lunchmoney(
     method: str, endpoint: str, headers: dict = None, **kwargs
 ) -> Dict[str, Any]:
-    token = getenv("LUNCHMONEY_TOKEN")
-    assert token is not None
+    with tracer.start_as_current_span("lunchmoney.call", attributes={
+        "method": method,
+        "endpoint": endpoint,
+        "headers": headers,
+    }) as span:
+        token = getenv("LUNCHMONEY_TOKEN")
+        assert token is not None
 
-    headers = {
-        **(headers or {}),
-        "Authorization": f"Bearer {token}",
-        "Accept": "application/json",
-    }
+        headers = {
+            **(headers or {}),
+            "Authorization": f"Bearer {token}",
+            "Accept": "application/json",
+        }
 
-    resp = requests.request(
-        method, f"https://dev.lunchmoney.app{endpoint}", headers=headers, **kwargs
-    )
-    resp.raise_for_status()
+        resp = requests.request(
+            method, f"https://dev.lunchmoney.app{endpoint}", headers=headers, **kwargs
+        )
+        span.set_attribute("status_code", resp.status_code)
 
-    return resp.json()
+        resp.raise_for_status()
+
+        return resp.json()
 
 def parse_date(date: str):
     return dateparser.parse(date, date_formats=["%Y-%m-%d"])

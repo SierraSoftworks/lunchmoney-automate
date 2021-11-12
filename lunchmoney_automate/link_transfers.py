@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 from typing import Iterable
 from decimal import Decimal
 import dateparser
+from opentelemetry.trace import Status, StatusCode
 
 from .task import Task
 from .utils import Account, Category, Transaction, call_lunchmoney, parse_date
@@ -26,42 +27,48 @@ class LinkTransfersTask(Task):
         self.create_if_missing = create_if_missing
 
     def run(self):
-        accounts = [
-            *(
-                Account("asset", **asset)
-                for asset in call_lunchmoney("GET", "/v1/assets")["assets"]
-            ),
-            *(
-                Account("plaid_account", **asset)
-                for asset in call_lunchmoney("GET", "/v1/plaid_accounts")["plaid_accounts"]
-            ),
-        ]
+        with self.tracer.start_as_current_span("lunchmoney.accounts"):
+            accounts = [
+                *(
+                    Account("asset", **asset)
+                    for asset in call_lunchmoney("GET", "/v1/assets")["assets"]
+                ),
+                *(
+                    Account("plaid_account", **asset)
+                    for asset in call_lunchmoney("GET", "/v1/plaid_accounts")[
+                        "plaid_accounts"
+                    ]
+                ),
+            ]
 
         self.log.debug(f"{len(accounts)} accounts loaded from Lunch Money")
         for account in accounts:
             self.log.debug(f"{account.alias} ({account.id})")
 
-        categories = [
-            Category(**cat) for cat in call_lunchmoney("GET", "/v1/categories")["categories"]
-        ]
+        with self.tracer.start_as_current_span("lunchmoney.categories"):
+            categories = [
+                Category(**cat)
+                for cat in call_lunchmoney("GET", "/v1/categories")["categories"]
+            ]
         self.log.debug(f"{len(categories)} categories loaded from Lunch Money")
         category = next(cat for cat in categories if cat.name == self.transfer_category)
         for cat in categories:
             self.log.debug(f"{cat.name} ({cat.id}, selected:{category == cat})")
 
-        transactions = [
-            Transaction(**cat)
-            for cat in call_lunchmoney(
-                "GET",
-                "/v1/transactions",
-                params={
-                    "category_id": category.id,
-                    "start_date": self.start_date,
-                    "end_date": self.end_date,
-                    "is_group": "false",
-                },
-            )["transactions"]
-        ]
+        with self.tracer.start_as_current_span("lunchmoney.transactions"):
+            transactions = [
+                Transaction(**cat)
+                for cat in call_lunchmoney(
+                    "GET",
+                    "/v1/transactions",
+                    params={
+                        "category_id": category.id,
+                        "start_date": self.start_date,
+                        "end_date": self.end_date,
+                        "is_group": "false",
+                    },
+                )["transactions"]
+            ]
 
         self.log.debug(f"{len(transactions)} transactions loaded from Lunch Money")
 
@@ -108,148 +115,171 @@ class LinkTransfersTask(Task):
         max_offset_days: int = 1,
         create_if_missing: bool = False,
     ):
-        ft_account = next(
-            account
-            for account in accounts
-            if account.id in [transaction.asset_id, transaction.plaid_account_id]
-        )
-
-        to_account = next(
-            (
+        with self.tracer.start_as_current_span(
+            "link_transaction", attributes={"transaction": transaction.id}
+        ) as span:
+            ft_account = next(
                 account
                 for account in accounts
-                if f"{kind} {account.alias}" == transaction.payee
-            ),
-            None,
-        )
-        if to_account is None:
-            self.log.warning(
-                f"No account matching '{transaction.payee[len(kind)+1:]}' for {transaction}"
+                if account.id in [transaction.asset_id, transaction.plaid_account_id]
             )
-            return
 
-        # Find candidate transactions which are from the correct account
-        account_candidates = list(
-            filter(
-                lambda t: getattr(t, f"{to_account.kind}_id") == to_account.id,
-                candidates,
+            to_account = next(
+                (
+                    account
+                    for account in accounts
+                    if f"{kind} {account.alias}" == transaction.payee
+                ),
+                None,
             )
-        )
-
-        # Find candidate transactions which are the complement of one another in value
-        amount_candidates = list(
-            filter(
-                lambda t: Decimal(t.amount) == -Decimal(transaction.amount),
-                account_candidates,
-            )
-        )
-
-        # Find candidates which use the correct payee naming scheme
-        named_candidates = list(
-            filter(
-                lambda t: t.payee == f"{candidate_kind} {ft_account.alias}",
-                amount_candidates,
-            )
-        )
-
-        # Find candidates which are within the max day offset of one another
-        time_offset = timedelta(days=max_offset_days)
-        date_candidates = list(
-            filter(
-                lambda t: abs(
-                    parse_date(t.date) - parse_date(transaction.date)
+            if to_account is None:
+                self.log.warning(
+                    f"No account matching '{transaction.payee[len(kind)+1:]}' for {transaction}"
                 )
-                <= time_offset,
-                named_candidates,
+                span.set_status(Status(StatusCode.ERROR, "No account matching"))
+                return
+
+            # Find candidate transactions which are from the correct account
+            account_candidates = list(
+                filter(
+                    lambda t: getattr(t, f"{to_account.kind}_id") == to_account.id,
+                    candidates,
+                )
             )
-        )
 
-        # Order the transactions by "nearness"
-        final_candidates = sorted(
-            date_candidates,
-            key=lambda t: abs(
-                parse_date(t.date) - parse_date(transaction.date)
-            ),
-        )
-
-        best_link = next((c for c in final_candidates), None)
-        if best_link is None and not create_if_missing:
-            self.log.warning(
-                f"No match for {transaction} (account:{len(account_candidates)}, +amount:{len(amount_candidates)}, +name:{len(named_candidates)}, +time:{len(date_candidates)})"
+            # Find candidate transactions which are the complement of one another in value
+            amount_candidates = list(
+                filter(
+                    lambda t: Decimal(t.amount) == -Decimal(transaction.amount),
+                    account_candidates,
+                )
             )
-            return
 
-        if best_link is None:
-            created_ids = call_lunchmoney(
-                "POST",
-                "/v1/transactions",
-                json={
-                    "apply_rules": True,
-                    "skip_duplicates": False,
-                    "transactions": [
-                        {
-                            "id": transaction.id,
+            # Find candidates which use the correct payee naming scheme
+            named_candidates = list(
+                filter(
+                    lambda t: t.payee == f"{candidate_kind} {ft_account.alias}",
+                    amount_candidates,
+                )
+            )
+
+            # Find candidates which are within the max day offset of one another
+            time_offset = timedelta(days=max_offset_days)
+            date_candidates = list(
+                filter(
+                    lambda t: abs(parse_date(t.date) - parse_date(transaction.date))
+                    <= time_offset,
+                    named_candidates,
+                )
+            )
+
+            # Order the transactions by "nearness"
+            final_candidates = sorted(
+                date_candidates,
+                key=lambda t: abs(parse_date(t.date) - parse_date(transaction.date)),
+            )
+
+            best_link = next((c for c in final_candidates), None)
+            if best_link is None and not create_if_missing:
+                self.log.warning(
+                    f"No match for {transaction} (account:{len(account_candidates)}, +amount:{len(amount_candidates)}, +name:{len(named_candidates)}, +time:{len(date_candidates)})"
+                )
+                span.set_status(Status(StatusCode.ERROR, "No match"))
+                return
+
+            if best_link is None:
+                with self.tracer.start_as_current_span("lunchmoney.create_transaction"):
+                    created_ids = call_lunchmoney(
+                        "POST",
+                        "/v1/transactions",
+                        json={
+                            "apply_rules": True,
+                            "skip_duplicates": False,
+                            "transactions": [
+                                {
+                                    "id": transaction.id,
+                                    "date": transaction.date,
+                                    "payee": f"{candidate_kind} {ft_account.alias}",
+                                    "amount": (
+                                        ""
+                                        if transaction.amount.startswith("-")
+                                        else "-"
+                                    )
+                                    + transaction.amount.lstrip("-"),
+                                    "currency": transaction.currency,
+                                    "notes": transaction.notes,
+                                    "category_id": category.id,
+                                    f"{to_account.kind}_id": to_account.id,
+                                    "tags": [
+                                        tag["id"] for tag in (transaction.tags or [])
+                                    ],
+                                }
+                            ],
+                        },
+                    )["ids"]
+
+                self.log.info(f"Created new pair for {transaction}: {created_ids}")
+
+                with self.tracer.start_as_current_span(
+                    "lunchmoney.group",
+                    attributes={"transactions": [transaction.id, *created_ids]},
+                ):
+                    group_id = call_lunchmoney(
+                        "POST",
+                        "/v1/transactions/group",
+                        json={
                             "date": transaction.date,
-                            "payee": f"{candidate_kind} {ft_account.alias}",
-                            "amount": (
-                                "" if transaction.amount.startswith("-") else "-"
-                            )
-                            + transaction.amount.lstrip("-"),
-                            "currency": transaction.currency,
-                            "notes": transaction.notes,
+                            "payee": f"{to_account.alias} {candidate_kind.lower()} {ft_account.alias}",
                             "category_id": category.id,
-                            f"{to_account.kind}_id": to_account.id,
-                            "tags": [tag["id"] for tag in (transaction.tags or [])],
-                        }
-                    ],
-                },
-            )["ids"]
+                            "notes": transaction.notes,
+                            "tags": [
+                                tag["id"] for tag in (transaction.tags or [])
+                            ],  # We exclude the original trigger tag
+                            "transactions": [transaction.id, *created_ids],
+                        },
+                    )
 
-            self.log.info(f"Creating new pair for {transaction}")
-            self.log.debug(
-                "Created group with ID/error: %s",
-                call_lunchmoney(
+                self.log.debug(
+                    "Created group with ID/error: %s",
+                    group_id,
+                )
+                return
+
+            self.log.info(f"Found link {transaction} => {best_link}")
+            candidates.remove(best_link)
+
+            bl_account = next(
+                account
+                for account in accounts
+                if account.id in [best_link.asset_id, best_link.plaid_account_id]
+            )
+
+            with self.tracer.start_as_current_span("lunchmoney.group", attributes={"transactions": [transaction.id, best_link.id]}):
+                group_id = call_lunchmoney(
                     "POST",
                     "/v1/transactions/group",
                     json={
-                        "date": transaction.date,
-                        "payee": f"{to_account.alias} {candidate_kind.lower()} {ft_account.alias}",
+                        "date": min(transaction.date, best_link.date),
+                        "payee": f"{bl_account.alias} {candidate_kind.lower()} {ft_account.alias}",
                         "category_id": category.id,
-                        "notes": transaction.notes,
+                        "notes": "; ".join(
+                            filter(
+                                lambda x: x,
+                                [
+                                    f"{transaction.currency.upper()} {abs(Decimal(transaction.amount))}",
+                                    transaction.notes,
+                                    best_link.notes,
+                                ],
+                            )
+                        ),
                         "tags": [
-                            tag["id"] for tag in (transaction.tags or [])
+                            tag["id"]
+                            for tag in [
+                                *(transaction.tags or []),
+                                *(best_link.tags or []),
+                            ]
                         ],  # We exclude the original trigger tag
-                        "transactions": [transaction.id, *created_ids],
+                        "transactions": [transaction.id, best_link.id],
                     },
-                ),
-            )
-            return
-
-        self.log.info(f"Found link {transaction} => {best_link}")
-        candidates.remove(best_link)
-
-        bl_account = next(
-            account
-            for account in accounts
-            if account.id in [best_link.asset_id, best_link.plaid_account_id]
-        )
-        self.log.debug(
-            " ---> %s",
-            call_lunchmoney(
-                "POST",
-                "/v1/transactions/group",
-                json={
-                    "date": min(transaction.date, best_link.date),
-                    "payee": f"{bl_account.alias} {candidate_kind.lower()} {ft_account.alias}",
-                    "category_id": category.id,
-                    "notes": "; ".join(
-                        filter(lambda x: x, [f"{transaction.currency.upper()} {abs(Decimal(transaction.amount))}", transaction.notes, best_link.notes])
-                    ),
-                    "tags": [
-                        tag["id"]
-                        for tag in [*(transaction.tags or []), *(best_link.tags or [])]
-                    ],  # We exclude the original trigger tag
-                    "transactions": [transaction.id, best_link.id],
-                },
-            ),
-        )
+                )
+            self.log.debug(f" ---> {group_id}")

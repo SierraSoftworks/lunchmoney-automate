@@ -8,6 +8,7 @@ on:
 env:
   PYTHON_VERSION: '3.9'
   LUNCHMONEY_CONFIG: '{"transfers":{"transfer_category":"Transfers"},"spare_change":[{"main_account":"Revolut EUR","savings_account":"Travel Fund","ignore_categories":["Transfers"]}]}'
+  HONEYCOMB_DATASET: lunchmoney
 
 jobs:
   run:
@@ -36,3 +37,4 @@ jobs:
         run: python ./main.py
         env:
           LUNCHMONEY_TOKEN: "${{ secrets.LUNCHMONEY_TOKEN }}"
+          HONEYCOMB_API_KEY: "${{ secrets.HONEYCOMB_API_KEY }}"
