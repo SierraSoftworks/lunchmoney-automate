@@ -34,3 +34,5 @@ jobs:
 
       - name: Run automation
         run: python ./main.py
+        env:
+          LUNCHMONEY_TOKEN: "${{ secrets.LUNCHMONEY_TOKEN }}"
