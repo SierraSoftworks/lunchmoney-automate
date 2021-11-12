@@ -116,31 +116,27 @@ class LinkSpareChangeTask(Task):
         )
 
         for t in main_transactions:
-            with self.tracer.start_as_current_span("lunchmoney.transactions", attributes={"transaction": t.id}) as span:
-                if t.group_id is not None:
-                    # Don't attempt to group transactions which are already grouped
-                    self.log.debug(f"Skipping {t} because it is already grouped")
-                    span.set_status(Status(StatusCode.OK, "Transaction is already grouped"))
+            if t.group_id is not None:
+                # Don't attempt to group transactions which are already grouped
+                self.log.debug(f"Skipping {t} because it is already grouped")
+                continue
 
-                    continue
+            if t.status == "recurring":
+                # We can't group recurring transactions
+                self.log.debug(
+                    f"Skipping {t} because it is part of a recurring transaction (which can't be grouped)"
+                )
+                continue
 
-                if t.status == "recurring":
-                    # We can't group recurring transactions
-                    self.log.debug(
-                        f"Skipping {t} because it is part of a recurring transaction (which can't be grouped)"
-                    )
-                    span.set_status(Status(StatusCode.OK, "Transaction is part of a recurring transaction"))
-                    continue
+            amt = Decimal(t.amount)
+            if amt < 0:
+                # Ignore incoming transactions since they don't generate spare change
+                self.log.debug(
+                    f"Skipping {t} because it is an inbound transfer which doesn't generate spare change"
+                )
+                continue
 
-                amt = Decimal(t.amount)
-                if amt < 0:
-                    # Ignore incoming transactions since they don't generate spare change
-                    self.log.debug(
-                        f"Skipping {t} because it is an inbound transfer which doesn't generate spare change"
-                    )
-                    span.set_status(Status(StatusCode.OK, "Transaction is an inbound transfer"))
-                    continue
-
+            with self.tracer.start_as_current_span("link_spare_change", attributes={"transaction": t.id}) as span:
                 spare_change = -self.multiplier * (
                     (math.ceil(abs(amt)) - abs(amt)) or Decimal(1)
                 )
