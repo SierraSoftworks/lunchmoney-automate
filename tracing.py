@@ -3,8 +3,11 @@ from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExport
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.instrumentation.logging import LoggingInstrumentor
+from opentelemetry.instrumentation.requests import RequestsInstrumentor
 from grpc import ssl_channel_credentials
 import os
+import logging
 
 resource = Resource(attributes={"service.name": "lunchmoney-automate"})
 
@@ -33,3 +36,6 @@ if os.environ.get("HONEYCOMB_API_KEY") is not None:
     trace_provider.add_span_processor(BatchSpanProcessor(otlp_exporter))
 
 trace.set_tracer_provider(trace_provider)
+
+LoggingInstrumentor().instrument(set_logging_format=True, log_level=logging.ERROR)
+RequestsInstrumentor().instrument()

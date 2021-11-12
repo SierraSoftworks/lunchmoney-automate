@@ -83,7 +83,7 @@ def group(items: Iterable[T], key: Callable[[T], S]) -> Dict[S, List[T]]:
 def call_lunchmoney(
     method: str, endpoint: str, headers: dict = None, **kwargs
 ) -> Dict[str, Any]:
-    with tracer.start_as_current_span("lunchmoney.call", attributes={
+    with tracer.start_as_current_span(f"{method} {endpoint}", attributes={
         "method": method,
         "endpoint": endpoint,
         "headers": headers,

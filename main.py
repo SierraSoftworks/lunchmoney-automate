@@ -12,8 +12,6 @@ from lunchmoney_automate.link_transfers import LinkTransfersTask
 from lunchmoney_automate.link_spare_change import LinkSpareChangeTask
 
 def main() -> None:
-    logging.basicConfig(level=os.getenv("LOG_LEVEL", "ERROR"))
-
     tracer = trace.get_tracer("lunchmoney-automate")
     with tracer.start_as_current_span("main"):
         with tracer.start_as_current_span("configuration.load"):
