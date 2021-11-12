@@ -31,8 +31,7 @@ def main() -> None:
     with tracer.start_as_current_span("tasks.run"):
         logging.info("Running tasks...")
         for task in tasks:
-            with task.tracer.start_as_current_span("run"):
-                task.run()
+            task.run()
 
 if __name__ == '__main__':
     main()

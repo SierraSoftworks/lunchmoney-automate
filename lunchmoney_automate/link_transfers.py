@@ -27,82 +27,83 @@ class LinkTransfersTask(Task):
         self.create_if_missing = create_if_missing
 
     def run(self):
-        with self.tracer.start_as_current_span("lunchmoney.accounts"):
-            accounts = [
-                *(
-                    Account("asset", **asset)
-                    for asset in call_lunchmoney("GET", "/v1/assets")["assets"]
-                ),
-                *(
-                    Account("plaid_account", **asset)
-                    for asset in call_lunchmoney("GET", "/v1/plaid_accounts")[
-                        "plaid_accounts"
-                    ]
-                ),
-            ]
+        with self.tracer.start_as_current_span("link_transfers"):
+            with self.tracer.start_as_current_span("lunchmoney.accounts"):
+                accounts = [
+                    *(
+                        Account("asset", **asset)
+                        for asset in call_lunchmoney("GET", "/v1/assets")["assets"]
+                    ),
+                    *(
+                        Account("plaid_account", **asset)
+                        for asset in call_lunchmoney("GET", "/v1/plaid_accounts")[
+                            "plaid_accounts"
+                        ]
+                    ),
+                ]
 
-        self.log.debug(f"{len(accounts)} accounts loaded from Lunch Money")
-        for account in accounts:
-            self.log.debug(f"{account.alias} ({account.id})")
+            self.log.debug(f"{len(accounts)} accounts loaded from Lunch Money")
+            for account in accounts:
+                self.log.debug(f"{account.alias} ({account.id})")
 
-        with self.tracer.start_as_current_span("lunchmoney.categories"):
-            categories = [
-                Category(**cat)
-                for cat in call_lunchmoney("GET", "/v1/categories")["categories"]
-            ]
-        self.log.debug(f"{len(categories)} categories loaded from Lunch Money")
-        category = next(cat for cat in categories if cat.name == self.transfer_category)
-        for cat in categories:
-            self.log.debug(f"{cat.name} ({cat.id}, selected:{category == cat})")
+            with self.tracer.start_as_current_span("lunchmoney.categories"):
+                categories = [
+                    Category(**cat)
+                    for cat in call_lunchmoney("GET", "/v1/categories")["categories"]
+                ]
+            self.log.debug(f"{len(categories)} categories loaded from Lunch Money")
+            category = next(cat for cat in categories if cat.name == self.transfer_category)
+            for cat in categories:
+                self.log.debug(f"{cat.name} ({cat.id}, selected:{category == cat})")
 
-        with self.tracer.start_as_current_span("lunchmoney.transactions"):
-            transactions = [
-                Transaction(**cat)
-                for cat in call_lunchmoney(
-                    "GET",
-                    "/v1/transactions",
-                    params={
-                        "category_id": category.id,
-                        "start_date": self.start_date,
-                        "end_date": self.end_date,
-                        "is_group": "false",
-                    },
-                )["transactions"]
-            ]
+            with self.tracer.start_as_current_span("lunchmoney.transactions"):
+                transactions = [
+                    Transaction(**cat)
+                    for cat in call_lunchmoney(
+                        "GET",
+                        "/v1/transactions",
+                        params={
+                            "category_id": category.id,
+                            "start_date": self.start_date,
+                            "end_date": self.end_date,
+                            "is_group": "false",
+                        },
+                    )["transactions"]
+                ]
 
-        self.log.debug(f"{len(transactions)} transactions loaded from Lunch Money")
+            self.log.debug(f"{len(transactions)} transactions loaded from Lunch Money")
 
-        transactions = sorted(
-            [t for t in transactions if t.group_id is None], key=lambda t: t.date
-        )
-        self.log.debug(f"{len(transactions)} transactions not yet linked")
-
-        from_transactions = [t for t in transactions if t.payee.startswith("From ")]
-        to_transactions = [t for t in transactions if t.payee.startswith("To ")]
-
-        for ft in from_transactions:
-            self._link_transaction(
-                "From",
-                ft,
-                "To",
-                to_transactions,
-                category=category,
-                accounts=accounts,
-                max_offset_days=self.max_offset_days,
-                create_if_missing=self.create_if_missing,
+            transactions = sorted(
+                [t for t in transactions if t.group_id is None], key=lambda t: t.date
             )
+            self.log.debug(f"{len(transactions)} transactions not yet linked")
 
-        for tt in to_transactions:
-            self._link_transaction(
-                "To",
-                tt,
-                "From",
-                from_transactions,
-                category=category,
-                accounts=accounts,
-                max_offset_days=self.max_offset_days,
-                create_if_missing=self.create_if_missing,
-            )
+            from_transactions = [t for t in transactions if t.payee.startswith("From ")]
+            to_transactions = [t for t in transactions if t.payee.startswith("To ")]
+
+            for ft in from_transactions:
+                self._link_transaction(
+                    "From",
+                    ft,
+                    "To",
+                    to_transactions,
+                    category=category,
+                    accounts=accounts,
+                    max_offset_days=self.max_offset_days,
+                    create_if_missing=self.create_if_missing,
+                )
+
+            for tt in to_transactions:
+                self._link_transaction(
+                    "To",
+                    tt,
+                    "From",
+                    from_transactions,
+                    category=category,
+                    accounts=accounts,
+                    max_offset_days=self.max_offset_days,
+                    create_if_missing=self.create_if_missing,
+                )
 
     def _link_transaction(
         self,
