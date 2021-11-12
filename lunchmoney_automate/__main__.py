@@ -1,4 +1,4 @@
-from . import main
+from lunchmoney_automate import main
 
 if __name__ == '__main__':
     main()
