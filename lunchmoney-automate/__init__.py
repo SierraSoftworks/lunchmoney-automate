@@ -4,15 +4,15 @@ import os
 import json
 from typing import List
 
-import azure.functions as func
-
 from .task import Task
 
 from .link_transfers import LinkTransfersTask
 from .link_spare_change import LinkSpareChangeTask
 
 
-def main(mytimer: func.TimerRequest) -> None:
+def main() -> None:
+    logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
+
     config = json.loads(os.getenv("LUNCHMONEY_CONFIG", "{}"))
 
     tasks: List[Task] = []

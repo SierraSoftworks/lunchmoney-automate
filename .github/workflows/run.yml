@@ -1,0 +1,36 @@
+name: Automate Lunchmoney
+
+on:
+  schedule:
+    - cron: 0 * 0 0 0
+  workflow_dispatch: {}
+
+env:
+  PYTHON_VERSION: '3.9'
+  LUNCHMONEY_CONFIG: '{"transfers":{"transfer_category":"Transfers"},"spare_change":[{"main_account":"Revolut EUR","savings_account":"Travel Fund","ignore_categories":["Transfers"]}]}'
+
+jobs:
+  run:
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Setup Python version
+        uses: actions/setup-python@v1
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Create and start virtual environment
+        run: |
+          python -m venv venv
+          source venv/bin/activate
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run tests
+        run: pytest -v
+
+      - name: Run automation
+        run: python ./lunchmoney-automate
