@@ -212,7 +212,7 @@ class LinkTransfersTask(Task):
                                     "category_id": category.id,
                                     f"{to_account.kind}_id": to_account.id,
                                     "tags": [
-                                        tag["id"] for tag in (transaction.tags or [])
+                                        tag.id for tag in transaction.tags
                                     ],
                                 }
                             ],
@@ -234,7 +234,7 @@ class LinkTransfersTask(Task):
                             "category_id": category.id,
                             "notes": transaction.notes,
                             "tags": [
-                                tag["id"] for tag in (transaction.tags or [])
+                                tag.id for tag in transaction.tags
                             ],  # We exclude the original trigger tag
                             "transactions": [transaction.id, *created_ids],
                         },
@@ -274,10 +274,10 @@ class LinkTransfersTask(Task):
                             )
                         ),
                         "tags": [
-                            tag["id"]
+                            tag.id
                             for tag in [
-                                *(transaction.tags or []),
-                                *(best_link.tags or []),
+                                *transaction.tags,
+                                *best_link.tags,
                             ]
                         ],  # We exclude the original trigger tag
                         "transactions": [transaction.id, best_link.id],

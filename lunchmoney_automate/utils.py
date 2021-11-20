@@ -49,6 +49,16 @@ class Category(Wrapper):
     def __init__(self, **data: dict) -> None:
         super().__init__(**data)
 
+class Tag(Wrapper):
+    id: str
+    name: str
+    description: str
+
+    def __init__(self, **data: dict) -> None:
+        super().__init__(**data)
+
+    def __str__(self) -> str:
+        return f"#{self.name}"
 
 class Transaction(Wrapper):
     id: int
@@ -64,9 +74,11 @@ class Transaction(Wrapper):
     parent_id: int
     is_group: bool
     group_id: int
+    tags: List[Tag]
 
     def __init__(self, **data: dict) -> None:
         super().__init__(**data)
+        self.tags = [Tag(**t) for t in (self.tags or [])]
 
     def __str__(self) -> str:
         return f"{self.date} {self.payee} [{self.currency.upper()} {self.amount}]"

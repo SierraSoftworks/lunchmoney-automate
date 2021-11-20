@@ -9,6 +9,7 @@ from opentelemetry import trace
 from lunchmoney_automate.task import Task
 
 from lunchmoney_automate.link_transfers import LinkTransfersTask
+from lunchmoney_automate.match_transfers import MatchTransfersTask
 from lunchmoney_automate.link_spare_change import LinkSpareChangeTask
 
 def main() -> None:
@@ -23,6 +24,10 @@ def main() -> None:
             if "transfers" in config:
                 logging.info("Link Transfers task enabled in configuration")
                 tasks.append(LinkTransfersTask(**config["transfers"]))
+
+            if "match_transfers" in config:
+                logging.info("Match Transfers task enabled in configuration")
+                tasks.append(MatchTransfersTask(**config["match_transfers"]))
 
             if "spare_change" in config:
                 logging.info("Link Spare Change task enabled in configuration")

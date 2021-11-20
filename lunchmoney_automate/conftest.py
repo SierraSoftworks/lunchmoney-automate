@@ -269,10 +269,39 @@ def lunchmoney_api_calls():
                     "fees": None,
                     "price": None,
                     "quantity": None,
+                    "tags": [
+                        { "id": 802, "name": "Fun", "description": "This transaction has added fun" },
+                    ]
+                },
+                {
+                    "id": 608,
+                    "date": "2020-01-03",
+                    "payee": "From Test Asset 2",
+                    "amount": "-5.0000",
+                    "currency": "usd",
+                    "notes": None,
+                    "category_id": 85,
+                    "recurring_id": None,
+                    "asset_id": 72,
+                    "plaid_account_id": None,
+                    "status": "uncleared",
+                    "is_group": False,
+                    "group_id": None,
+                    "parent_id": None,
+                    "external_id": "jf2r3t98o943",
+                    "original_name": "Savings",
+                    "type": None,
+                    "subtype": None,
+                    "fees": None,
+                    "price": None,
+                    "quantity": None,
+                    "tags": [
+                        { "id": 801, "name": "needs-pair", "description": "This transaction needs a pair to be created for it automatically" },
+                    ]
                 },
             ]
         },
-        "POST /v1/transactions": {"ids": [54, 55, 56, 57]},
+        "POST /v1/transactions": {"ids": [609]},
         "POST /v1/transactions/group": 84389,
         "DELETE /v1/transactions/group/701": {"transactions":[606, 607]}
     }
@@ -281,6 +310,9 @@ def lunchmoney_api_calls():
 def call_lunchmoney(lunchmoney_api_calls):
     def call(method: str, endpoint: str, headers: dict = None, **kwargs):
         call_spec = f"{method} {endpoint}"
+
+        print(f"{call_spec}: {kwargs}")
+
         if call_spec in lunchmoney_api_calls:
             return lunchmoney_api_calls[call_spec]
 

@@ -184,7 +184,7 @@ class LinkSpareChangeTask(Task):
                                 "payee": t.payee,
                                 "category_id": t.category_id,
                                 "notes": t.notes,
-                                "tags": [tag["id"] for tag in (t.tags or [])],
+                                "tags": [tag.id for tag in t.tags],
                                 "transactions": list(transactions),
                             },
                         )

@@ -7,7 +7,7 @@ on:
 
 env:
   PYTHON_VERSION: '3.9'
-  LUNCHMONEY_CONFIG: '{"transfers":{"transfer_category":"Transfers"},"spare_change":[{"main_account":"Revolut EUR","savings_account":"Travel Fund","ignore_categories":["Transfers"]}]}'
+  LUNCHMONEY_CONFIG: '{"transfers":{"transfer_category":"Transfers"},"match_transfers":{"transfer_category":"Transfers", "needs_match_tag": "needs-pair"},"spare_change":[{"main_account":"Revolut EUR","savings_account":"Travel Fund","ignore_categories":["Transfers"]}]}'
   HONEYCOMB_DATASET: lunchmoney
 
 jobs:
