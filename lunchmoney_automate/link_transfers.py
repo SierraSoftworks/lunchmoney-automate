@@ -82,7 +82,7 @@ class LinkTransfersTask(Task):
             to_transactions = [t for t in transactions if t.payee.startswith("To ")]
 
             from_transactions = [
-                ft for ft in from_transactions if self._link_transaction(
+                ft for ft in from_transactions if not self._link_transaction(
                     "From",
                     ft,
                     "To",
@@ -95,7 +95,7 @@ class LinkTransfersTask(Task):
             ]   
 
             to_transactions = [
-                tt for tt in to_transactions if self._link_transaction(
+                tt for tt in to_transactions if not self._link_transaction(
                     "To",
                     tt,
                     "From",
