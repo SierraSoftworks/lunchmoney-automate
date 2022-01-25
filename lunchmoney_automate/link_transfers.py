@@ -81,8 +81,8 @@ class LinkTransfersTask(Task):
             from_transactions = [t for t in transactions if t.payee.startswith("From ")]
             to_transactions = [t for t in transactions if t.payee.startswith("To ")]
 
-            for ft in from_transactions:
-                self._link_transaction(
+            from_transactions = [
+                ft for ft in from_transactions if self._link_transaction(
                     "From",
                     ft,
                     "To",
@@ -92,9 +92,10 @@ class LinkTransfersTask(Task):
                     max_offset_days=self.max_offset_days,
                     create_if_missing=self.create_if_missing,
                 )
+            ]   
 
-            for tt in to_transactions:
-                self._link_transaction(
+            to_transactions = [
+                tt for tt in to_transactions if self._link_transaction(
                     "To",
                     tt,
                     "From",
@@ -104,6 +105,7 @@ class LinkTransfersTask(Task):
                     max_offset_days=self.max_offset_days,
                     create_if_missing=self.create_if_missing,
                 )
+            ]
 
     def _link_transaction(
         self,
@@ -115,7 +117,7 @@ class LinkTransfersTask(Task):
         accounts: Iterable[Account],
         max_offset_days: int = 1,
         create_if_missing: bool = False,
-    ):
+    ) -> bool:
         with self.tracer.start_as_current_span(
             "link_transaction", attributes={"transaction": transaction.id}
         ) as span:
@@ -138,7 +140,7 @@ class LinkTransfersTask(Task):
                     f"No account matching '{transaction.payee[len(kind)+1:]}' for {transaction}"
                 )
                 span.set_status(Status(StatusCode.ERROR, "No account matching"))
-                return
+                return False
 
             # Find candidate transactions which are from the correct account
             account_candidates = list(
@@ -186,7 +188,7 @@ class LinkTransfersTask(Task):
                     f"No match for {transaction} (account:{len(account_candidates)}, +amount:{len(amount_candidates)}, +name:{len(named_candidates)}, +time:{len(date_candidates)})"
                 )
                 span.set_status(Status(StatusCode.ERROR, "No match"))
-                return
+                return False
 
             if best_link is None:
                 with self.tracer.start_as_current_span("lunchmoney.create_transaction"):
@@ -244,7 +246,7 @@ class LinkTransfersTask(Task):
                     "Created group with ID/error: %s",
                     group_id,
                 )
-                return
+                return True
 
             self.log.info(f"Found link {transaction} => {best_link}")
             candidates.remove(best_link)
@@ -284,3 +286,4 @@ class LinkTransfersTask(Task):
                     },
                 )
             self.log.debug(f" ---> {group_id}")
+            return True
