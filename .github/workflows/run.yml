@@ -1,8 +1,9 @@
 name: Automate Lunchmoney
 
 on:
-  schedule:
-    - cron: '0 * * * *'
+  # TODO: Uncomment the entries below to run this task hourly.
+  #schedule:
+  #  - cron: '0 * * * *'
   workflow_dispatch: {}
 
 env:
